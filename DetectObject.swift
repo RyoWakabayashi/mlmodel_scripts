@@ -1,35 +1,42 @@
 import AppKit
 import Vision
 
-func parseArgs() -> String? {
-    CommandLine.arguments.dropFirst().first
+struct Args {
+    let modelPath: String
+    let imagePath: String
 }
 
-func detect(filePath: String) {
-    let detector = Detector()
-    let fileUrl = URL(fileURLWithPath: filePath)
-    let nsImage = NSImage(byReferencing: fileUrl)
+func parseArgs() -> Args? {
+    guard let modelPath = CommandLine.arguments.dropFirst().first,
+          let imagePath = CommandLine.arguments.dropFirst().dropFirst().first else { return nil }
+    return Args(modelPath: modelPath, imagePath: imagePath)
+}
+
+func detect(modelPath: String, imagePath: String) {
+    let detector = Detector(modelPath: modelPath)
+    let imageUrl = URL(fileURLWithPath: imagePath)
+    let nsImage = NSImage(byReferencing: imageUrl)
     detector.detect(nsImage)
 }
 
 func main() {
-    guard let filePath = parseArgs() else {
-        print("Plese enter the path to the target image file")
+    guard let args = parseArgs() else {
+        print("Please specify the path to the mlmodelc directory and the target image file")
         return
     }
-    detect(filePath: filePath)
+    detect(modelPath: args.modelPath, imagePath: args.imagePath)
 }
 
 class Detector: NSObject {
     var yoloRequest: VNCoreMLRequest?
 
-    override init() {
+    init(modelPath: String) {
         super.init()
-        self.prepareModel()
+        self.prepareModel(modelPath: modelPath)
     }
 
-    func prepareModel() {
-        let modelUrl = URL(fileURLWithPath: "./YOLOv3.mlmodelc")
+    func prepareModel(modelPath: String) {
+        let modelUrl = URL(fileURLWithPath: modelPath)
         guard let yoloModel = try? MLModel(contentsOf: modelUrl),
               let yoloMLModel = try? VNCoreMLModel(for: yoloModel) else { return }
         self.yoloRequest = VNCoreMLRequest(model: yoloMLModel) { [weak self] request, error in
@@ -39,9 +46,9 @@ class Detector: NSObject {
     }
 
     func detect(_ image: NSImage) {
-        guard let ciImage = image.ciImage,
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
               let yoloRequest = self.yoloRequest else { return }
-        let handler = VNImageRequestHandler(ciImage: ciImage)
+        let handler = VNImageRequestHandler(cgImage: cgImage)
         try? handler.perform([yoloRequest])
     }
 
@@ -50,22 +57,23 @@ class Detector: NSObject {
         guard let observations = request.results as? [VNRecognizedObjectObservation] else { return }
         observations.forEach { observation in
             if let topLabel = observation.topLabel {
-                print(topLabel.identifier, topLabel.confidence, observation.boundingBox)
+                print(topLabel.identifier, topLabel.confidence,
+                      observation.boundingBox.flipVertical())
             }
         }
-    }
-}
-
-extension NSImage {
-    var ciImage: CIImage? {
-        guard let imageData = self.tiffRepresentation else { return nil }
-        return CIImage(data: imageData)
     }
 }
 
 extension VNRecognizedObjectObservation {
     var topLabel: VNClassificationObservation? {
         self.labels.max { $0.confidence < $1.confidence }
+    }
+}
+
+extension CGRect {
+    func flipVertical(size: CGSize = CGSize(width: 1.0, height: 1.0)) -> CGRect {
+        CGRect(x: self.minX, y: size.height - self.maxY,
+               width: self.width, height: self.height)
     }
 }
 

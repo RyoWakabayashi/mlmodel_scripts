@@ -1,6 +1,10 @@
 import AppKit
 import Vision
 
+func parseArgs() -> String? {
+    CommandLine.arguments.dropFirst().first
+}
+
 func compile(modelUrl: URL) -> URL? {
     return try? MLModel.compileModel(at: modelUrl)
 }
@@ -24,7 +28,11 @@ func copyOrReplace(inputUrl: URL, outputUrl: URL) {
 }
 
 func main() {
-    let modelUrl = URL(fileURLWithPath: "./YOLOv3.mlmodel")
+    guard let modelPath = parseArgs() else {
+        print("Please specify the path to the .mlmodel file")
+        return
+    }
+    let modelUrl = URL(fileURLWithPath: modelPath)
     guard let compiledUrl = compile(modelUrl: modelUrl) else {
         print("Compile error occured.")
         return
