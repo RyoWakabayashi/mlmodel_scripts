@@ -38,6 +38,6 @@ Execute object detection by specifying the path of the compiled model and the im
 Label, score, and coordinate information will be displayed.
 
 ```bash
-$ swift DetectObject.swift YOLOv3.mlmodelc chair.png
+$ ./DetectObject.sh YOLOv3.mlmodelc chair.png
 chair 0.99625164 (0.19140625, 0.01318359375, 0.763671875, 0.97265625)
 ```
